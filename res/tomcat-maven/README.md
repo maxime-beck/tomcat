@@ -19,84 +19,42 @@
 
 -->
 
-# Apache Tomcat distribution for Apache Maven
+# Using Quarkus
 
-## Configuration
+## Prerequisites
+* JDK 1.8+ installed with JAVA_HOME configured appropriately
+* GraalVM installed from the [GraalVM web site](http://www.graalvm.org/downloads/). Using the community edition is enough. Version 1.0.0-rc15 is required.
+* The GRAALVM_HOME environment variable configured appropriately
+* Apache Maven 3.5.3+
+* A working C developer environment (`sudo dnf install gcc glibc-devel zlib-devel or sudo apt-get install build-essential libz-dev`)
+* A running Docker
 
-Configuration is located in `conf/server.xml`, `conf/web.xml`, `conf/logging.properties`, all other configuration files, resources and context files are located in `conf`, identical to standalone Tomcat.
+## Build & Run
 
-## Building
-
-### Maven build
-
-Update Tomcat version number in the `pom.xml`, customize Tomcat components in the dependencies to keep the ones needed (only the main `tomcat-catalina` is mandatory). Custom Tomcat components sources can be added to the usual Maven build path and will be included in the package that is built.
-```
-mvn clean; mvn package
-```
-
-### Docker build
+Build it using the maven-wrapper provided:
 
 ```
-docker build -t apache/tomcat-maven:1.0 -f ./Dockerfile .
-```
-Docker build arguments include `namepsace` (default is `tomcat`) and `port` which should match the Tomcat port in `server.xml` (default is `8080`). Other ports that need to be exposed can be added in the `Dockerfile` as needed. Webapps should be added to the `webapps` folder where they will be auto deployed by the host if using the defaults. Otherwise, the `Dockerfile` command line can be edited like below to include the necesary resources and command line arguments to run a single or multiple hardcoded web applications.
-
-## Running
-
-Add a webapp as folder mywebapp (for this example, or specify another path), or a path from which a configured Host will auto deploy
-```
---path: Specify a path the wepapp will use
---war: Add the spcified path (directory or war) as a webapp (if no path has been specified, it will be the root webapp)
+./mvnw package -Pnative
 ```
 
-The JULI logging manager configuration is optional but makes logging more readable and configurable:
-`-Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager -Djava.util.logging.config.file=conf/logging.properties`
-The default JULI configuration uses `catalina.base`, so specifying the system property with `-Dcatalina.base=.` is also useful.
+In addition to the regular files, the build also produces `target/tomcat-maven-1.0-runner`. You can run it using: `./target/tomcat-maven-1.0-runner`.
 
-### Command line example with a single root webapp
-
+## Current state
+When `./target/tomcat-maven-1.0-runner` is running:
 ```
-java -Dcatalina.base=. -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager -Djava.util.logging.config.file=conf/logging.properties -jar target/tomcat-maven-1.0.jar --war myrootwebapp
-```
-
-### Command line example with three webapps
-
-```
-java -Dcatalina.base=. -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager -Djava.util.logging.config.file=conf/logging.properties -jar target/tomcat-maven-1.0.jar --war myrootwebapp --path /path1 --war mywebapp1 --path /path2 --war mywebapp2
+$ curl -D- localhost:8080
+HTTP/1.1 403 Forbidden
+Connection: keep-alive
+Content-Type: text/html;charset=UTF-8
+Content-Length: 68
 ```
 
-## Cloud
+## References
+__Quarkus - Getting Started__   
+https://quarkus.io/guides/building-native-image-guide
 
-### Deployment
+__Quarkus - Application Configuration Guide__   
+https://quarkus.io/guides/application-configuration-guide
 
-An example `tomcat.yaml` is included which uses the Docker image. It uses the health check valve which can be added in `conf/server.xml`, or a similar service responding to requests on `/health`. It also declares the optional Jolokia and Prometheus ports for monitoring.
-
-### Cluster
-
-If using the Kubernetes cloud clustering membership provider, the pod needs to have the permission to view other pods. For exemple with Openshift, this is done with:
-```
-oc policy add-role-to-user view system:serviceaccount:$(oc project -q):default -n $(oc project -q)
-```
-
-## Native Image
-
-Note: Graal support in Tomcat is not functional yet.
-
-Build Graal native-image-configure tool.
-```
-export JAVA_HOME=/path...to/graalvm-ce-1.0.0-rc16
-cd $JAVA_HOME/jre/tools/native-image-configure
-$JAVA_HOME/bin/native-image -H:-ParseRuntimeOptions -jar svm-configure.jar -H:Name=native-image-configure
-```
-Run Tomcat with the agent in full trace mode.
-```
-$JAVA_HOME/bin/java -agentlib:native-image-agent=trace-output=./target/trace-file.json -jar ./target/tomcat-maven-1.0.jar
-```
-Then exercise necessary paths of your service with the Tomcat configuration.
-
-Generate the final json using native-image-configuration then use native image using the generated reflection metadata.
-```
-cd target
-$JAVA_HOME/jre/tools/native-image-configure/native-image-configure generate --trace-input=trace-file.json --output-dir=.
-$JAVA_HOME/bin/native-image -H:+ReportUnsupportedElementsAtRuntime -H:ConfigurationFileDirectories=./ -H:ReflectionConfigurationFiles=../tomcat-reflection.json -jar tomcat-maven-1.0.jar
-```
+__Quarkus - Maven Tooling (Debbugging)__   
+https://quarkus.io/guides/maven-tooling
